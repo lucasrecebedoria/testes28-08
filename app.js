@@ -280,92 +280,86 @@ async function renderParcial() {
   relatorioLista.textContent = out;
 }
 
+
 function printThermalReceipt(data) {
-  // Open new window w/ thermal CSS and auto-print
-  const win = window.open('', '_blank', 'width=400,height=800');
+  const win = window.open('', '_blank', 'width=400,height=600');
   const now = new Date();
   const dt = now.toLocaleString('pt-BR');
   const html = `<!DOCTYPE html>
   <html><head><meta charset="utf-8">
   <title>Recibo</title>
   <style>
-    @page { size: 80mm 150mm; margin: 6mm; }
-    body { font-family: "Courier New", Courier, monospace; font-size: 15px; }
+    @page { size: 80mm 110mm; margin: 3mm; }
+    body { font-family: "Courier New", Courier, monospace; font-size: 14px; font-weight: bold; line-height: 1.2; }
     h1 { text-align: center; font-size: 16px; margin: 8px 0 12px; }
-    .line { display:flex; justify-content: space-between; margin: 4px 0; }
-    .mono { font-family: inherit; white-space: pre-wrap; }
-    .center { text-align: center; }
-    .sig { margin-top: 20px; border-top: 1px solid #000; width: 100%; }
+    .line { margin: 3px 0; }
+    strong { font-weight: bold; }
+    .sig { margin-top: 20px; border-top: 1px solid #000; width: 100%; text-align: center; padding-top: 6px; }
   </style></head>
   <body onload="window.print(); setTimeout(()=>window.close(), 500);">
     <h1>RECIBO DE PAGAMENTO MANUAL</h1>
-    <div class="mono">
-      Tipo de validador: ${data.tipoValidador}\n
-      PREFIXO: ${data.prefixo}\n
-      QUANTIDADE BORDOS: ${data.qtdBordos}\n
-      VALOR: R$ ${Number(data.valor).toFixed(2)}\n
-      MATRICULA MOTORISTA: ${data.matriculaMotorista}\n
-      MATRICULA RECEBEDOR: ${data.matriculaRecebedor}\n
-      DATA RECEBIMENTO: ${dt}\n
-      ASSINATURA RECEBEDOR:\n
-      _____________________________
+    <div>
+      <div class="line"><strong>Tipo de validador:</strong> ${data.tipoValidador}</div>
+      <div class="line"><strong>PREFIXO:</strong> ${data.prefixo}</div>
+      <div class="line"><strong>QUANTIDADE BORDOS:</strong> ${data.qtdBordos}</div>
+      <div class="line"><strong>VALOR:</strong> R$ ${Number(data.valor).toFixed(2)}</div>
+      <div class="line"><strong>MATRICULA MOTORISTA:</strong> ${data.matriculaMotorista}</div>
+      <div class="line"><strong>MATRICULA RECEBEDOR:</strong> ${data.matriculaRecebedor}</div>
+      <div class="line"><strong>DATA RECEBIMENTO:</strong> ${dt}</div>
     </div>
+    <div class="sig">ASSINATURA RECEBEDOR</div>
   </body></html>`;
   win.document.write(html);
   win.document.close();
 }
 
-async function gerarRelatorioPDF() {
+
+async 
+function gerarRelatorioPDF(dadosCaixa) {
   const { jsPDF } = window.jspdf;
-  const docpdf = new jsPDF({ unit: 'pt', format: 'a4' });
-  const uid = currentCaixaRef.userId;
-  const cid = currentCaixaRef.caixaId;
+  const doc = new jsPDF();
 
-  const lref = collection(db, 'users', uid, 'caixas', cid, 'lancamentos');
-  const sref = collection(db, 'users', uid, 'caixas', cid, 'sangrias');
-  const lqs = await getDocs(query(lref, orderBy('createdAt','asc')));
-  const sqs = await getDocs(query(sref, orderBy('createdAt','asc')));
+  // Logo
+  const img = new Image();
+  img.src = 'MOVE_BUSS_LOGO02.png';
+  doc.addImage(img, 'PNG', 80, 10, 50, 20);
 
-  let y = 40;
-  docpdf.setFont('helvetica','bold'); docpdf.setFontSize(16);
-  docpdf.text('Relatório de Fechamento de Caixa', 40, y); y += 22;
-  docpdf.setFontSize(11); docpdf.setFont('helvetica','normal');
-  const hoje = new Date();
-  docpdf.text(`Operador: ${currentUserDoc.nome}  • Matrícula: ${currentUserDoc.matricula}`, 40, y); y+=16;
-  docpdf.text(`Data: ${hoje.toLocaleDateString('pt-BR')} ${hoje.toLocaleTimeString('pt-BR')}`, 40, y); y+=22;
-  docpdf.text('Detalhamento dos lançamentos:', 40, y); y+=16;
+  // Cabeçalho centralizado
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text("RELATÓRIO DE FECHAMENTO DE CAIXA", 105, 40, { align: "center" });
 
-  let total = 0;
-  lqs.forEach(d => {
-    const x = d.data();
-    const line = `${x.dataCaixa} | ${x.prefixo} | ${x.tipoValidador} | Qtd:${x.qtdBordos} | Valor: ${fmtMoney(x.valor)} | Mot:${x.matriculaMotorista}`;
-    if (y > 760) { docpdf.addPage(); y = 40; }
-    docpdf.text(line, 40, y); y+=14;
-    total += Number(x.valor||0);
-  });
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Matrícula: ${dadosCaixa.matricula}`, 105, 48, { align: "center" });
+  doc.text(`Data abertura: ${dadosCaixa.dataAbertura}`, 105, 54, { align: "center" });
+  doc.text(`Data fechamento: ${dadosCaixa.dataFechamento}`, 105, 60, { align: "center" });
 
-  y += 14;
-  docpdf.text('Sangrias registradas:', 40, y); y+=16;
-  let totalS = 0;
-  if (sqs.empty) { docpdf.text('— Nenhuma', 40, y); y+=14; }
-  else {
-    sqs.forEach(d => {
-      const x = d.data();
-      const line = `${fmtMoney(x.valor)} — Motivo: ${x.motivo}`;
-      if (y > 760) { docpdf.addPage(); y = 40; }
-      docpdf.text(line, 40, y); y+=14;
-      totalS += Number(x.valor||0);
-    });
-  }
+  // Linha verde separadora
+  doc.setDrawColor(0, 128, 0);
+  doc.setLineWidth(0.6);
+  doc.line(20, 66, 190, 66);
 
-  y += 14;
-  docpdf.setFont('helvetica','bold');
-  docpdf.text(`TOTAL LANÇAMENTOS: ${fmtMoney(total)}`, 40, y); y+=16;
-  docpdf.text(`TOTAL SANGRIAS: ${fmtMoney(totalS)}`, 40, y); y+=16;
-  docpdf.text(`TOTAL CORRIGIDO: ${fmtMoney(total - totalS)}`, 40, y); y+=22;
-  docpdf.setFont('helvetica','normal');
-  docpdf.text('Fechamento resumido configurado para A4. Documento gerado automaticamente.', 40, y);
+  // Conteúdo
+  let y = 78;
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text("Detalhes do caixa:", 20, y);
+  doc.setFont("helvetica", "normal");
+  y += 8;
+  doc.text(`Prefixo: ${dadosCaixa.prefixo}`, 20, y); y+=7;
+  doc.text(`Quantidade bordos: ${dadosCaixa.qtdBordos}`, 20, y); y+=7;
+  doc.text(`Valor total: R$ ${Number(dadosCaixa.valor).toFixed(2)}`, 20, y);
 
-  const fileName = `${currentUserDoc.matricula}-${todayISO()}.pdf`;
-  docpdf.save(fileName);
+  // Linha verde antes da assinatura
+  doc.setDrawColor(0, 128, 0);
+  doc.line(20, 250, 190, 250);
+
+  // Assinatura
+  doc.text("Assinatura do Responsável:", 20, 265);
+  doc.line(20, 268, 100, 268);
+
+  // Download
+  doc.save(`relatorio_caixa_${dadosCaixa.matricula}_${dadosCaixa.dataFechamento}.pdf`);
 }
+
