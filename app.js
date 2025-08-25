@@ -281,416 +281,94 @@ async function renderParcial() {
 }
 
 function printThermalReceipt(data) {
-  // Janela de impressão térmica
   const win = window.open('', '_blank', 'width=400,height=800');
-  const dt = new Date().toLocaleString('pt-BR');
-
+  const now = new Date();
+  const dt = now.toLocaleString('pt-BR');
   const html = `<!DOCTYPE html>
   <html><head><meta charset="utf-8">
   <title>Recibo</title>
   <style>
-    /* TAMANHO TÉRMICO: mais compacto */
-    @page { size: 80mm 120mm; margin: 4mm; }
-
-    /* Fonte mais grossa em todo o recibo */
-    body {
-      font-family: "Arial Black", Arial, Helvetica, sans-serif;
-      font-size: 12px;
-      font-weight: 800;
-      margin: 0;
+    @page { size: 80mm 150mm; margin: 6mm; }
+    body { font-family: "Arial Black", "Courier New", Courier, monospace; font-size: 14px; }
+    h1 { text-align: center; font-size: 16px; margin: 8px 0 12px; font-weight: bold; }
+    .mono { 
+      font-family: inherit; 
+      white-space: pre-wrap; 
+      text-align: right;   /* alinha texto à direita */
+      direction: rtl;      /* opcional, força da direita para esquerda */
     }
-
-    /* Título centralizado */
-    h1 {
-      text-align: center;
-      font-size: 16px;
-      margin: 2px 0 6px;
-      font-weight: 900;
-    }
-
-    /* Truque para "puxar da direita para o centro":
-       bloco mais estreito, colado na direita, e o conteúdo alinhado à direita */
-    .receipt {
-      width: 58mm;        /* menor que 80mm -> conteúdo sai mais para o centro */
-      margin-left: auto;  /* ancora o bloco na borda direita */
-      text-align: right;  /* alinha internamente todas as linhas à direita */
-    }
-
-    /* Barras verdes (efeito metálico simples) */
-    .bar {
-      height: 2px;
-      background: linear-gradient(90deg, #2a6b2a, #4fd34f, #2a6b2a);
-      margin: 6px 0;
-    }
-
-    .row { margin: 2px 0; }
-    .label { font-weight: 900; }
-
-    .sig {
-      margin-top: 14px;
-      padding-top: 6px;
-      border-top: 1px solid #000;
-      text-align: center;
-      font-weight: 700;
-    }
+    .sig { margin-top: 20px; border-top: 1px solid #000; width: 100%; text-align: center; }
   </style></head>
   <body onload="window.print(); setTimeout(()=>window.close(), 500);">
     <h1>RECIBO DE PAGAMENTO MANUAL</h1>
-    <div class="receipt">
-      <div class="bar"></div>
-      <div class="row"><span class="label">Tipo de validador:</span> ${data.tipoValidador}</div>
-      <div class="row"><span class="label">PREFIXO:</span> ${data.prefixo}</div>
-      <div class="row"><span class="label">QUANTIDADE BORDOS:</span> ${data.qtdBordos}</div>
-      <div class="row"><span class="label">VALOR:</span> R$ ${Number(data.valor).toFixed(2)}</div>
-      <div class="row"><span class="label">MATRICULA MOTORISTA:</span> ${data.matriculaMotorista}</div>
-      <div class="row"><span class="label">MATRICULA RECEBEDOR:</span> ${data.matriculaRecebedor}</div>
-      <div class="row"><span class="label">DATA RECEBIMENTO:</span> ${dt}</div>
-      <div class="bar"></div>
-      <div class="sig">ASSINATURA RECEBEDOR</div>
+    <div class="mono">
+      <b>Tipo de validador:</b> ${data.tipoValidador}<br>
+      <b>PREFIXO:</b> ${data.prefixo}<br>
+      <b>QUANTIDADE BORDOS:</b> ${data.qtdBordos}<br>
+      <b>VALOR:</b> R$ ${Number(data.valor).toFixed(2)}<br>
+      <b>MATRICULA MOTORISTA:</b> ${data.matriculaMotorista}<br>
+      <b>MATRICULA RECEBEDOR:</b> ${data.matriculaRecebedor}<br>
+      <b>DATA RECEBIMENTO:</b> ${dt}<br>
+      <br>
+      <b>ASSINATURA RECEBEDOR:</b><br>
+      _____________________________
     </div>
   </body></html>`;
-
   win.document.write(html);
   win.document.close();
 }
 
-
 async function gerarRelatorioPDF() {
   const { jsPDF } = window.jspdf;
   const docpdf = new jsPDF({ unit: 'pt', format: 'a4' });
-  const pageWidth = docpdf.internal.pageSize.getWidth();
-
-  // Busca dados do caixa (ajuste os gets conforme seu código/variáveis)
-  // currentUserDoc: { nome, matricula }
-  // currentCaixaRef: { userId, caixaId }
   const uid = currentCaixaRef.userId;
   const cid = currentCaixaRef.caixaId;
 
-  // Caixa (datas/horas)
-  const cref = doc(db, 'users', uid, 'caixas', cid);
-  const caixaSnap = await getDoc(cref);
-  const cx = caixaSnap.data() || {};
-  const createdAt = cx.createdAt?.toDate ? cx.createdAt.toDate() : new Date();
-  const closedAt  = cx.closedAt?.toDate ? cx.closedAt.toDate() : new Date();
-
-  // Utilitário: carrega imagem como DataURL
-  async function loadImageAsDataURL(path) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width; canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      };
-      img.onerror = reject;
-      img.src = path;
-    });
-  }
-
-  // Logo (coloque em ./assets/logo.png)
-  const logoDataUrl = await loadImageAsDataURL('./assets/logo.png').catch(() => null);
-
-  // ===== Cabeçalho =====
-  let y = 40;
-  if (logoDataUrl) {
-    const lw = 140, lh = 65;
-    const lx = (pageWidth - lw) / 2;
-    docpdf.addImage(logoDataUrl, 'PNG', lx, y, lw, lh);
-    y += lh + 6;
-  }
-
-  docpdf.setFont('helvetica', 'bold'); 
-  docpdf.setFontSize(18);
-  docpdf.text('RELATÓRIO DE FECHAMENTO DE CAIXA', pageWidth / 2, y, { align: 'center' });
-  y += 12;
-
-  const drawGreenBar = (yy) => {
-    docpdf.setFillColor(46, 139, 87); // verde
-    docpdf.rect(40, yy, pageWidth - 80, 4, 'F');
-  };
-  y += 8; drawGreenBar(y); y += 16;
-
-  // Bloco de informações (centralizado visualmente, 2 colunas)
-  docpdf.setFont('helvetica', 'normal'); 
-  docpdf.setFontSize(12);
-
-  const left = [
-    `Matrícula Recebedor: ${currentUserDoc.matricula}`,
-    `Data Abertura: ${createdAt.toLocaleDateString('pt-BR')}`,
-    `Data Fechamento: ${closedAt.toLocaleDateString('pt-BR')}`
-  ];
-  const right = [
-    `Nome: ${currentUserDoc.nome}`,
-    `Hora Abertura: ${createdAt.toLocaleTimeString('pt-BR')}`,
-    `Hora Fechamento: ${closedAt.toLocaleTimeString('pt-BR')}`
-  ];
-
-  let ix = 60, iy = y;
-  left.forEach((t, i) => docpdf.text(t, ix, iy + i * 16));
-  const rx = pageWidth / 2 + 20;
-  right.forEach((t, i) => docpdf.text(t, rx, iy + i * 16));
-
-  y = iy + left.length * 16 + 18;
-  docpdf.setFont('helvetica', 'bold');
-  docpdf.text(`Status: ${(cx.status || '').toUpperCase()}   •   Caixa Nº: ${cid}`, pageWidth / 2, y, { align: 'center' });
-
-  y += 10; drawGreenBar(y); y += 16;
-
-  // ===== Lançamentos =====
-  docpdf.setFont('helvetica', 'bold'); docpdf.setFontSize(14);
-  docpdf.text('Lançamentos', 40, y); y += 14;
-  docpdf.setFont('helvetica', 'normal'); docpdf.setFontSize(11);
-
   const lref = collection(db, 'users', uid, 'caixas', cid, 'lancamentos');
-  const lqs = await getDocs(query(lref, orderBy('createdAt', 'asc')));
+  const sref = collection(db, 'users', uid, 'caixas', cid, 'sangrias');
+  const lqs = await getDocs(query(lref, orderBy('createdAt','asc')));
+  const sqs = await getDocs(query(sref, orderBy('createdAt','asc')));
 
-  const cols = ['Horário','Validador','Prefixo','Bordos','Valor (R$)','Matr. Motorista'];
-  const colX = [40, 120, 220, 300, 380, 470];
-
-  docpdf.setFont('helvetica', 'bold');
-  cols.forEach((c, i) => docpdf.text(c, colX[i], y));
-  y += 10; drawGreenBar(y); y += 10;
-  docpdf.setFont('helvetica', 'normal');
+  let y = 40;
+  docpdf.setFont('helvetica','bold'); docpdf.setFontSize(16);
+  docpdf.text('Relatório de Fechamento de Caixa', 40, y); y += 22;
+  docpdf.setFontSize(11); docpdf.setFont('helvetica','normal');
+  const hoje = new Date();
+  docpdf.text(`Operador: ${currentUserDoc.nome}  • Matrícula: ${currentUserDoc.matricula}`, 40, y); y+=16;
+  docpdf.text(`Data: ${hoje.toLocaleDateString('pt-BR')} ${hoje.toLocaleTimeString('pt-BR')}`, 40, y); y+=22;
+  docpdf.text('Detalhamento dos lançamentos:', 40, y); y+=16;
 
   let total = 0;
   lqs.forEach(d => {
     const x = d.data();
-    const quando = x.createdAt?.toDate ? x.createdAt.toDate() : new Date();
-    const row = [
-      quando.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      x.tipoValidador, x.prefixo, String(x.qtdBordos),
-      Number(x.valor).toFixed(2), x.matriculaMotorista
-    ];
+    const line = `${x.dataCaixa} | ${x.prefixo} | ${x.tipoValidador} | Qtd:${x.qtdBordos} | Valor: ${fmtMoney(x.valor)} | Mot:${x.matriculaMotorista}`;
     if (y > 760) { docpdf.addPage(); y = 40; }
-    row.forEach((txt, i) => docpdf.text(String(txt), colX[i], y));
-    y += 14;
-    total += Number(x.valor || 0);
+    docpdf.text(line, 40, y); y+=14;
+    total += Number(x.valor||0);
   });
 
-  // ===== Sangrias =====
-  y += 6; drawGreenBar(y); y += 16;
-  docpdf.setFont('helvetica', 'bold'); docpdf.setFontSize(14);
-  docpdf.text('Sangrias', 40, y); y += 14;
-  docpdf.setFont('helvetica', 'normal'); docpdf.setFontSize(11);
-
-  const sref = collection(db, 'users', uid, 'caixas', cid, 'sangrias');
-  const sqs = await getDocs(query(sref, orderBy('createdAt', 'asc')));
+  y += 14;
+  docpdf.text('Sangrias registradas:', 40, y); y+=16;
   let totalS = 0;
-
-  if (sqs.empty) {
-    docpdf.text('— Nenhuma', 40, y); y += 14;
-  } else {
-    const scol = ['Horário','Valor (R$)','Motivo'];
-    const scx  = [40, 120, 200];
-    docpdf.setFont('helvetica', 'bold'); scol.forEach((c,i)=>docpdf.text(c, scx[i], y));
-    y += 10; drawGreenBar(y); y += 10; docpdf.setFont('helvetica', 'normal');
-
+  if (sqs.empty) { docpdf.text('— Nenhuma', 40, y); y+=14; }
+  else {
     sqs.forEach(d => {
       const x = d.data();
-      const quando = x.createdAt?.toDate ? x.createdAt.toDate() : new Date();
-      const line = [
-        quando.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        Number(x.valor).toFixed(2),
-        x.motivo
-      ];
+      const line = `${fmtMoney(x.valor)} — Motivo: ${x.motivo}`;
       if (y > 760) { docpdf.addPage(); y = 40; }
-      line.forEach((t,i)=>docpdf.text(String(t), scx[i], y));
-      y += 14;
-      totalS += Number(x.valor || 0);
+      docpdf.text(line, 40, y); y+=14;
+      totalS += Number(x.valor||0);
     });
   }
 
-  // ===== Resumo =====
-  y += 8; drawGreenBar(y); y += 16;
-  docpdf.setFont('helvetica', 'bold'); docpdf.setFontSize(14);
-  docpdf.text('Resumo Financeiro', 40, y); y += 16;
+  y += 14;
+  docpdf.setFont('helvetica','bold');
+  docpdf.text(`TOTAL LANÇAMENTOS: ${fmtMoney(total)}`, 40, y); y+=16;
+  docpdf.text(`TOTAL SANGRIAS: ${fmtMoney(totalS)}`, 40, y); y+=16;
+  docpdf.text(`TOTAL CORRIGIDO: ${fmtMoney(total - totalS)}`, 40, y); y+=22;
+  docpdf.setFont('helvetica','normal');
+  docpdf.text('Fechamento resumido configurado para A4. Documento gerado automaticamente.', 40, y);
 
-  docpdf.setFont('helvetica', 'normal'); docpdf.setFontSize(12);
-  docpdf.text(`Total Abastecido: ${(Number(total)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 40, y); y += 16;
-  docpdf.text(`Total Sangrias: ${(Number(totalS)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 40, y); y += 16;
-
-  docpdf.setFont('helvetica', 'bold');
-  docpdf.text(`Saldo Final: ${(Number(total - totalS)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 40, y); 
-  y += 24;
-
-  // ===== Assinatura =====
-  drawGreenBar(y); y += 24;
-  docpdf.setFont('helvetica', 'normal');
-  docpdf.text('Assinatura do Recebedor', pageWidth / 2, y + 28, { align: 'center' });
-  docpdf.line(pageWidth / 2 - 160, y + 20, pageWidth / 2 + 160, y + 20);
-
-  const fileName = `${currentUserDoc.matricula}-${new Date().toISOString().slice(0,10)}.pdf`;
-  docpdf.save(fileName);
-}async function gerarRelatorioPDF() {
-  const { jsPDF } = window.jspdf;
-  const docpdf = new jsPDF({ unit: 'pt', format: 'a4' });
-  const pageWidth = docpdf.internal.pageSize.getWidth();
-
-  // Busca dados do caixa (ajuste os gets conforme seu código/variáveis)
-  // currentUserDoc: { nome, matricula }
-  // currentCaixaRef: { userId, caixaId }
-  const uid = currentCaixaRef.userId;
-  const cid = currentCaixaRef.caixaId;
-
-  // Caixa (datas/horas)
-  const cref = doc(db, 'users', uid, 'caixas', cid);
-  const caixaSnap = await getDoc(cref);
-  const cx = caixaSnap.data() || {};
-  const createdAt = cx.createdAt?.toDate ? cx.createdAt.toDate() : new Date();
-  const closedAt  = cx.closedAt?.toDate ? cx.closedAt.toDate() : new Date();
-
-  // Utilitário: carrega imagem como DataURL
-  async function loadImageAsDataURL(path) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width; canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      };
-      img.onerror = reject;
-      img.src = path;
-    });
-  }
-
-  // Logo (coloque em ./assets/logo.png)
-  const logoDataUrl = await loadImageAsDataURL('./assets/logo.png').catch(() => null);
-
-  // ===== Cabeçalho =====
-  let y = 40;
-  if (logoDataUrl) {
-    const lw = 140, lh = 65;
-    const lx = (pageWidth - lw) / 2;
-    docpdf.addImage(logoDataUrl, 'PNG', lx, y, lw, lh);
-    y += lh + 6;
-  }
-
-  docpdf.setFont('helvetica', 'bold'); 
-  docpdf.setFontSize(18);
-  docpdf.text('RELATÓRIO DE FECHAMENTO DE CAIXA', pageWidth / 2, y, { align: 'center' });
-  y += 12;
-
-  const drawGreenBar = (yy) => {
-    docpdf.setFillColor(46, 139, 87); // verde
-    docpdf.rect(40, yy, pageWidth - 80, 4, 'F');
-  };
-  y += 8; drawGreenBar(y); y += 16;
-
-  // Bloco de informações (centralizado visualmente, 2 colunas)
-  docpdf.setFont('helvetica', 'normal'); 
-  docpdf.setFontSize(12);
-
-  const left = [
-    `Matrícula Recebedor: ${currentUserDoc.matricula}`,
-    `Data Abertura: ${createdAt.toLocaleDateString('pt-BR')}`,
-    `Data Fechamento: ${closedAt.toLocaleDateString('pt-BR')}`
-  ];
-  const right = [
-    `Nome: ${currentUserDoc.nome}`,
-    `Hora Abertura: ${createdAt.toLocaleTimeString('pt-BR')}`,
-    `Hora Fechamento: ${closedAt.toLocaleTimeString('pt-BR')}`
-  ];
-
-  let ix = 60, iy = y;
-  left.forEach((t, i) => docpdf.text(t, ix, iy + i * 16));
-  const rx = pageWidth / 2 + 20;
-  right.forEach((t, i) => docpdf.text(t, rx, iy + i * 16));
-
-  y = iy + left.length * 16 + 18;
-  docpdf.setFont('helvetica', 'bold');
-  docpdf.text(`Status: ${(cx.status || '').toUpperCase()}   •   Caixa Nº: ${cid}`, pageWidth / 2, y, { align: 'center' });
-
-  y += 10; drawGreenBar(y); y += 16;
-
-  // ===== Lançamentos =====
-  docpdf.setFont('helvetica', 'bold'); docpdf.setFontSize(14);
-  docpdf.text('Lançamentos', 40, y); y += 14;
-  docpdf.setFont('helvetica', 'normal'); docpdf.setFontSize(11);
-
-  const lref = collection(db, 'users', uid, 'caixas', cid, 'lancamentos');
-  const lqs = await getDocs(query(lref, orderBy('createdAt', 'asc')));
-
-  const cols = ['Horário','Validador','Prefixo','Bordos','Valor (R$)','Matr. Motorista'];
-  const colX = [40, 120, 220, 300, 380, 470];
-
-  docpdf.setFont('helvetica', 'bold');
-  cols.forEach((c, i) => docpdf.text(c, colX[i], y));
-  y += 10; drawGreenBar(y); y += 10;
-  docpdf.setFont('helvetica', 'normal');
-
-  let total = 0;
-  lqs.forEach(d => {
-    const x = d.data();
-    const quando = x.createdAt?.toDate ? x.createdAt.toDate() : new Date();
-    const row = [
-      quando.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      x.tipoValidador, x.prefixo, String(x.qtdBordos),
-      Number(x.valor).toFixed(2), x.matriculaMotorista
-    ];
-    if (y > 760) { docpdf.addPage(); y = 40; }
-    row.forEach((txt, i) => docpdf.text(String(txt), colX[i], y));
-    y += 14;
-    total += Number(x.valor || 0);
-  });
-
-  // ===== Sangrias =====
-  y += 6; drawGreenBar(y); y += 16;
-  docpdf.setFont('helvetica', 'bold'); docpdf.setFontSize(14);
-  docpdf.text('Sangrias', 40, y); y += 14;
-  docpdf.setFont('helvetica', 'normal'); docpdf.setFontSize(11);
-
-  const sref = collection(db, 'users', uid, 'caixas', cid, 'sangrias');
-  const sqs = await getDocs(query(sref, orderBy('createdAt', 'asc')));
-  let totalS = 0;
-
-  if (sqs.empty) {
-    docpdf.text('— Nenhuma', 40, y); y += 14;
-  } else {
-    const scol = ['Horário','Valor (R$)','Motivo'];
-    const scx  = [40, 120, 200];
-    docpdf.setFont('helvetica', 'bold'); scol.forEach((c,i)=>docpdf.text(c, scx[i], y));
-    y += 10; drawGreenBar(y); y += 10; docpdf.setFont('helvetica', 'normal');
-
-    sqs.forEach(d => {
-      const x = d.data();
-      const quando = x.createdAt?.toDate ? x.createdAt.toDate() : new Date();
-      const line = [
-        quando.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        Number(x.valor).toFixed(2),
-        x.motivo
-      ];
-      if (y > 760) { docpdf.addPage(); y = 40; }
-      line.forEach((t,i)=>docpdf.text(String(t), scx[i], y));
-      y += 14;
-      totalS += Number(x.valor || 0);
-    });
-  }
-
-  // ===== Resumo =====
-  y += 8; drawGreenBar(y); y += 16;
-  docpdf.setFont('helvetica', 'bold'); docpdf.setFontSize(14);
-  docpdf.text('Resumo Financeiro', 40, y); y += 16;
-
-  docpdf.setFont('helvetica', 'normal'); docpdf.setFontSize(12);
-  docpdf.text(`Total Abastecido: ${(Number(total)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 40, y); y += 16;
-  docpdf.text(`Total Sangrias: ${(Number(totalS)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 40, y); y += 16;
-
-  docpdf.setFont('helvetica', 'bold');
-  docpdf.text(`Saldo Final: ${(Number(total - totalS)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 40, y); 
-  y += 24;
-
-  // ===== Assinatura =====
-  drawGreenBar(y); y += 24;
-  docpdf.setFont('helvetica', 'normal');
-  docpdf.text('Assinatura do Recebedor', pageWidth / 2, y + 28, { align: 'center' });
-  docpdf.line(pageWidth / 2 - 160, y + 20, pageWidth / 2 + 160, y + 20);
-
-  const fileName = `${currentUserDoc.matricula}-${new Date().toISOString().slice(0,10)}.pdf`;
+  const fileName = `${currentUserDoc.matricula}-${todayISO()}.pdf`;
   docpdf.save(fileName);
 }
