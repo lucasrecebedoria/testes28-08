@@ -288,14 +288,17 @@ function printThermalReceipt(data) {
   const html = `<!DOCTYPE html>
   <html><head><meta charset="utf-8">
   <title>Recibo</title>
+  
   <style>
     @page { size: 80mm 110mm; margin: 3mm; }
     body { font-family: "Courier New", Courier, monospace; font-size: 14px; font-weight: bold; line-height: 1.2; }
-    h1 { text-align: center; font-size: 16px; margin: 8px 0 12px; }
-    .line { margin: 3px 0; }
-    strong { font-weight: bold; }
-    .sig { margin-top: 20px; border-top: 1px solid #000; width: 100%; text-align: center; padding-top: 6px; }
-  </style></head>
+    h1 { text-align: center; font-size: 16px; margin: 6px 0 8px; }
+    .line { display:flex; justify-content: space-between; margin: 2px 0; }
+    .mono { font-family: inherit; white-space: pre-wrap; text-align: right; }
+    .center { text-align: center; }
+    .sig { margin-top: 10px; border-top: 1px solid #000; width: 100%; }
+  </style>
+</head>
   <body onload="window.print(); setTimeout(()=>window.close(), 500);">
     <h1>RECIBO DE PAGAMENTO MANUAL</h1>
     <div>
