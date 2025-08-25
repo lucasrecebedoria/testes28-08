@@ -281,6 +281,7 @@ async function renderParcial() {
 }
 
 function printThermalReceipt(data) {
+  // Open new window w/ thermal CSS and auto-print
   const win = window.open('', '_blank', 'width=400,height=800');
   const now = new Date();
   const dt = now.toLocaleString('pt-BR');
@@ -289,28 +290,24 @@ function printThermalReceipt(data) {
   <title>Recibo</title>
   <style>
     @page { size: 80mm 150mm; margin: 6mm; }
-    body { font-family: "Arial Black", "Courier New", Courier, monospace; font-size: 14px; }
-    h1 { text-align: center; font-size: 16px; margin: 8px 0 12px; font-weight: bold; }
-    .mono { 
-      font-family: inherit; 
-      white-space: pre-wrap; 
-      text-align: right;   /* alinha texto à direita */
-      direction: rtl;      /* opcional, força da direita para esquerda */
-    }
-    .sig { margin-top: 20px; border-top: 1px solid #000; width: 100%; text-align: center; }
+    body { font-family: "Courier New", Courier, monospace; font-size: 15px; }
+    h1 { text-align: center; font-size: 16px; margin: 8px 0 12px; }
+    .line { display:flex; justify-content: space-between; margin: 4px 0; }
+    .mono { font-family: inherit; white-space: pre-wrap; }
+    .center { text-align: center; }
+    .sig { margin-top: 20px; border-top: 1px solid #000; width: 100%; }
   </style></head>
   <body onload="window.print(); setTimeout(()=>window.close(), 500);">
     <h1>RECIBO DE PAGAMENTO MANUAL</h1>
     <div class="mono">
-      <b>Tipo de validador:</b> ${data.tipoValidador}<br>
-      <b>PREFIXO:</b> ${data.prefixo}<br>
-      <b>QUANTIDADE BORDOS:</b> ${data.qtdBordos}<br>
-      <b>VALOR:</b> R$ ${Number(data.valor).toFixed(2)}<br>
-      <b>MATRICULA MOTORISTA:</b> ${data.matriculaMotorista}<br>
-      <b>MATRICULA RECEBEDOR:</b> ${data.matriculaRecebedor}<br>
-      <b>DATA RECEBIMENTO:</b> ${dt}<br>
-      <br>
-      <b>ASSINATURA RECEBEDOR:</b><br>
+      Tipo de validador: ${data.tipoValidador}\n
+      PREFIXO: ${data.prefixo}\n
+      QUANTIDADE BORDOS: ${data.qtdBordos}\n
+      VALOR: R$ ${Number(data.valor).toFixed(2)}\n
+      MATRICULA MOTORISTA: ${data.matriculaMotorista}\n
+      MATRICULA RECEBEDOR: ${data.matriculaRecebedor}\n
+      DATA RECEBIMENTO: ${dt}\n
+      ASSINATURA RECEBEDOR:\n
       _____________________________
     </div>
   </body></html>`;
