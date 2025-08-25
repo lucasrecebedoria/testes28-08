@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MoveBuss • Registro de Caixas</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <!-- Firebase SDKs -->
+  <script type="module" src="./firebase.js"></script>
+  <!-- jsPDF for A4 reports -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <div id="bg-overlay"></div>
+  <header class="topbar">
+    <div class="brand">
+      <img src="./assets/logo.png" alt="MoveBuss" class="logo"/>
+      <div class="brand-text">
+        <h1>Move<span class="accent">Buss</span></h1>
+        <small>Mobilidade Urbana • Registro de Caixas</small>
+      </div>
+    </div>
+    <div class="user-area">
+      <div id="userBadge" class="badge hidden">Visitante</div>
+      <button id="btnChangePass" class="btn ghost hidden">Alterar senha</button>
+      <button id="btnLogout" class="btn danger hidden">Deslogar</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Auth Cards -->
+    <section id="authArea" class="grid">
+      <div class="card">
+        <h2>Login</h2>
+        <div class="field">
+          <label>Matrícula</label>
+          <input id="loginMatricula" type="text" inputmode="numeric" placeholder="Ex: 4144" maxlength="10">
+        </div>
+        <div class="field">
+          <label>Senha</label>
+          <input id="loginSenha" type="password" placeholder="Sua senha">
+        </div>
+        <button id="btnLogin" class="btn primary wide">Entrar</button>
+      </div>
+
+      <div class="card">
+        <h2>Registrar conta</h2>
+        <div class="field">
+          <label>Nome completo</label>
+          <input id="cadNome" type="text" placeholder="Seu nome">
+        </div>
+        <div class="field">
+          <label>Matrícula</label>
+          <input id="cadMatricula" type="text" inputmode="numeric" placeholder="Ex: 70029" maxlength="10">
+        </div>
+        <div class="field">
+          <label>Senha</label>
+          <input id="cadSenha" type="password" placeholder="Crie uma senha">
+        </div>
+        <button id="btnRegistrar" class="btn success wide">Criar conta</button>
+        <small class="muted">Após o cadastro você será redirecionado ao login.</small>
+      </div>
+    </section>
+
+    <!-- Painel principal -->
+    <section id="appArea" class="hidden">
+      <div class="status-bar">
+        <div>Estado do caixa: <span id="caixaStatus" class="pill">—</span></div>
+        <div class="cluster">
+          <button id="btnAbrir" class="btn success">Abrir Caixa</button>
+          <button id="btnFechar" class="btn warning" disabled>Fechar Caixa</button>
+        </div>
+      </div>
+
+      <!-- Sangria -->
+      <div id="sangriaBox" class="card hidden">
+        <h3>Sangria</h3>
+        <div class="grid2">
+          <div class="field">
+            <label>Valor a ser sangrado (R$)</label>
+            <input id="sangriaValor" type="number" step="0.01" min="0">
+          </div>
+          <div class="field">
+            <label>Motivo da sangria</label>
+            <input id="sangriaMotivo" type="text" maxlength="120" placeholder="Descreva o motivo">
+          </div>
+        </div>
+        <button id="btnRegistrarSangria" class="btn ghost">Registrar sangria</button>
+      </div>
+
+      <!-- Lançamentos -->
+      <div id="lancamentoBox" class="card hidden">
+        <h3>Novo lançamento</h3>
+        <div class="grid4">
+          <div class="field">
+            <label>Tipo de validador</label>
+            <select id="tipoVal">
+              <option value="PRODATA">PRODATA</option>
+              <option value="DIGICON">DIGICON</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Quantidade de bordos</label>
+            <input id="qtdBordos" type="number" min="1" value="1">
+          </div>
+          <div class="field">
+            <label>Valor (R$)</label>
+            <input id="valor" type="number" min="0" step="0.01" disabled>
+          </div>
+          <div class="field">
+            <label>Prefixo</label>
+            <div class="prefixo-wrap">
+              <span class="prefix">55</span>
+              <input id="prefixo" type="text" inputmode="numeric" maxlength="3" placeholder="XXX">
+            </div>
+          </div>
+          <div class="field">
+            <label>Data do caixa</label>
+            <input id="dataCaixa" type="date">
+          </div>
+          <div class="field">
+            <label>Matrícula motorista</label>
+            <input id="matMotorista" type="text" inputmode="numeric" maxlength="10">
+          </div>
+          <div class="field">
+            <label>Matrícula recebedor</label>
+            <input id="matRecebedor" type="text" disabled>
+          </div>
+        </div>
+        <button id="btnSalvarLanc" class="btn primary">Salvar e imprimir recibo</button>
+      </div>
+
+      <!-- Relatório do caixa corrente -->
+      <div id="relatorioBox" class="card">
+        <h3>Relatório parcial</h3>
+        <div id="relatorioLista" class="table-like"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <small>© MoveBuss – Sistema de Lançamento de Caixas • v1.0</small>
+  </footer>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
